@@ -19,82 +19,73 @@ pub fn solve_part1(input: &PreparedInput) -> u32 {
         .sum()
 }
 
+fn parse_num(line: &[u8]) -> Option<u8> {
+    if line.len() >= 3 {
+        if line.starts_with("one".as_bytes()) {
+            return Some(1);
+        }
+        if line.starts_with("two".as_bytes()) {
+            return Some(2);
+        }
+        if line.starts_with("six".as_bytes()) {
+            return Some(6);
+        }
+    }
+    if line.len() >= 4 {
+        if line.starts_with("four".as_bytes()) {
+            return Some(4);
+        }
+        if line.starts_with("five".as_bytes()) {
+            return Some(5);
+        }
+        if line.starts_with("nine".as_bytes()) {
+            return Some(9);
+        }
+    }
+    if line.len() >= 5 {
+        if line.starts_with("three".as_bytes()) {
+            return Some(3);
+        }
+        if line.starts_with("seven".as_bytes()) {
+            return Some(7);
+        }
+        if line.starts_with("eight".as_bytes()) {
+            return Some(8);
+        }
+    }
+    None
+}
+
 pub fn solve_part2(input: &PreparedInput) -> u32 {
     input
         .iter()
         .map(|&line| {
             let line = line.as_bytes();
-            let mut i = 0;
-            let first_digit = loop {
-                let c = line[i];
-                if c.is_ascii_digit() {
-                    break c - b'0';
-                }
-                if line[i..].starts_with("one".as_bytes()) {
-                    break 1;
-                }
-                if line[i..].starts_with("two".as_bytes()) {
-                    break 2;
-                }
-                if line[i..].starts_with("three".as_bytes()) {
-                    break 3;
-                }
-                if line[i..].starts_with("four".as_bytes()) {
-                    break 4;
-                }
-                if line[i..].starts_with("five".as_bytes()) {
-                    break 5;
-                }
-                if line[i..].starts_with("six".as_bytes()) {
-                    break 6;
-                }
-                if line[i..].starts_with("seven".as_bytes()) {
-                    break 7;
-                }
-                if line[i..].starts_with("eight".as_bytes()) {
-                    break 8;
-                }
-                if line[i..].starts_with("nine".as_bytes()) {
-                    break 9;
-                }
-                i += 1;
-            };
-            let mut i = line.len() - 1;
-            let last_digit = loop {
-                let c = line[i];
-                if c.is_ascii_digit() {
-                    break c - b'0';
-                }
-                let remaining_line = &line[..i + 1];
-                if remaining_line.ends_with("one".as_bytes()) {
-                    break 1;
-                }
-                if remaining_line.ends_with("two".as_bytes()) {
-                    break 2;
-                }
-                if remaining_line.ends_with("three".as_bytes()) {
-                    break 3;
-                }
-                if remaining_line.ends_with("four".as_bytes()) {
-                    break 4;
-                }
-                if remaining_line.ends_with("five".as_bytes()) {
-                    break 5;
-                }
-                if remaining_line.ends_with("six".as_bytes()) {
-                    break 6;
-                }
-                if remaining_line.ends_with("seven".as_bytes()) {
-                    break 7;
-                }
-                if remaining_line.ends_with("eight".as_bytes()) {
-                    break 8;
-                }
-                if remaining_line.ends_with("nine".as_bytes()) {
-                    break 9;
-                }
-                i -= 1;
-            };
+
+            // Extracting the duplicate closure results is significantly slower.
+            let first_digit = line
+                .iter()
+                .enumerate()
+                .find_map(|(i, c): (usize, &u8)| {
+                    if c.is_ascii_digit() {
+                        Some(*c - b'0')
+                    } else {
+                        parse_num(&line[i..])
+                    }
+                })
+                .unwrap();
+            let last_digit = line
+                .iter()
+                .enumerate()
+                .rev()
+                .find_map(|(i, c): (usize, &u8)| {
+                    if c.is_ascii_digit() {
+                        Some(*c - b'0')
+                    } else {
+                        parse_num(&line[i..])
+                    }
+                })
+                .unwrap();
 
             first_digit as u32 * 10 + last_digit as u32
         })

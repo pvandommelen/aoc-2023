@@ -1,7 +1,5 @@
 use clap::Parser;
-
-mod day;
-mod solution;
+use std::time::Instant;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -15,12 +13,22 @@ fn main() {
     let args = Args::parse();
 
     let solver = match args.day {
-        1 => day::day01::solve,
+        1 => aoc_2023::day::day01::solve,
         _ => unimplemented!(),
     };
 
-    let (p1, p2) = solver(&std::fs::read_to_string(format!("./input/day{:0>2}.txt", args.day)).unwrap());
+    let input = std::fs::read_to_string(format!("./input/day{:0>2}.txt", args.day)).unwrap();
+
+    let start = Instant::now();
+
+    let (p1, p2) = solver(&input);
+
+    let end = Instant::now();
 
     println!("day{}/part1: {}", args.day, p1);
     println!("day{}/part2: {}", args.day, p2);
+    println!(
+        "Execution time: {:.2} ms",
+        ((end - start).as_micros() as f64) / 1000f64
+    );
 }

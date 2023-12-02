@@ -40,8 +40,6 @@ pub struct Game {
     largest_draw: Draw,
 }
 
-type PreparedInput = Vec<Game>;
-
 fn parse_draw(input: &mut &BStr) -> PResult<Draw> {
     separated(
         1..,
@@ -73,38 +71,30 @@ fn parse_game(input: &mut &BStr) -> PResult<Game> {
     Ok(Game { id, largest_draw })
 }
 
-pub fn prepare(input: &str) -> PreparedInput {
-    separated(1.., parse_game, '\n')
-        .parse(input.into())
-        .unwrap()
-}
-
-pub fn solve_part1(input: &PreparedInput) -> u32 {
+pub fn prepare(input: &str) -> impl Iterator<Item = Game> + '_ {
     input
-        .iter()
-        .filter(|game| {
-            game.largest_draw.red <= 12
-                && game.largest_draw.green <= 13
-                && game.largest_draw.blue <= 14
-        })
-        .map(|game| game.id as u32)
-        .sum()
-}
-
-pub fn solve_part2(input: &PreparedInput) -> u32 {
-    input
-        .iter()
-        .map(|game| {
-            game.largest_draw.red as u32
-                * game.largest_draw.green as u32
-                * game.largest_draw.blue as u32
-        })
-        .sum()
+        .lines()
+        .map(|line| parse_game.parse(line.into()).unwrap())
 }
 
 pub fn solve(input: &str) -> (Solution, Solution) {
-    let input = prepare(input);
-    (solve_part1(&input).into(), solve_part2(&input).into())
+    let games = prepare(input);
+
+    let (part1, part2) = games.fold((0u32, 0u32), |(mut part1, mut part2), game| {
+        if game.largest_draw.red <= 12
+            && game.largest_draw.green <= 13
+            && game.largest_draw.blue <= 14
+        {
+            part1 += game.id as u32;
+        }
+        part2 += game.largest_draw.red as u32
+            * game.largest_draw.green as u32
+            * game.largest_draw.blue as u32;
+
+        (part1, part2)
+    });
+
+    (part1.into(), part2.into())
 }
 
 #[cfg(test)]
@@ -118,14 +108,14 @@ Game 4: 1 green, 3 red, 6 blue; 3 green, 6 red; 3 green, 15 blue, 14 red
 Game 5: 6 red, 1 blue, 3 green; 2 blue, 1 red, 2 green";
     #[test]
     fn example_prepare() {
-        assert_eq!(prepare(EXAMPLE_INPUT).len(), 5);
+        assert_eq!(prepare(EXAMPLE_INPUT).count(), 5);
     }
     #[test]
     fn example_part1() {
-        assert_eq!(solve_part1(&prepare(EXAMPLE_INPUT)), 8);
+        assert_eq!(solve(EXAMPLE_INPUT).0, 8u32.into());
     }
     #[test]
     fn example_part2() {
-        assert_eq!(solve_part2(&prepare(EXAMPLE_INPUT)), 2286);
+        assert_eq!(solve(EXAMPLE_INPUT).1, 2286u32.into());
     }
 }

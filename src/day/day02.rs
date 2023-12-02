@@ -3,6 +3,7 @@ use winnow::ascii::dec_uint;
 use winnow::combinator::{alt, separated, separated_foldl1, separated_pair};
 use winnow::prelude::*;
 use winnow::stream::Accumulate;
+use winnow::BStr;
 
 #[derive(Copy, Clone, Default)]
 pub struct Draw {
@@ -40,7 +41,7 @@ pub struct Game {
 
 type PreparedInput = Vec<Game>;
 
-fn parse_draw(input: &mut &str) -> PResult<Draw> {
+fn parse_draw(input: &mut &BStr) -> PResult<Draw> {
     separated(
         1..,
         separated_pair(
@@ -56,7 +57,7 @@ fn parse_draw(input: &mut &str) -> PResult<Draw> {
     )
     .parse_next(input)
 }
-fn parse_game(input: &mut &str) -> PResult<Game> {
+fn parse_game(input: &mut &BStr) -> PResult<Game> {
     "Game ".parse_next(input)?;
     let id = dec_uint(input)?;
     ": ".parse_next(input)?;
@@ -71,7 +72,9 @@ fn parse_game(input: &mut &str) -> PResult<Game> {
 }
 
 pub fn prepare(input: &str) -> PreparedInput {
-    separated(1.., parse_game, '\n').parse(input).unwrap()
+    separated(1.., parse_game, '\n')
+        .parse(input.into())
+        .unwrap()
 }
 
 pub fn solve_part1(input: &PreparedInput) -> u32 {

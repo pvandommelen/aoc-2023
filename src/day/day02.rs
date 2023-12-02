@@ -1,9 +1,10 @@
 use crate::solution::Solution;
 use winnow::ascii::dec_uint;
-use winnow::combinator::{alt, separated, separated_foldl1, separated_pair};
+use winnow::combinator::{fail, separated, separated_foldl1, separated_pair};
 use winnow::prelude::*;
 use winnow::stream::Accumulate;
-use winnow::BStr;
+use winnow::token::{any, take};
+use winnow::{dispatch, BStr};
 
 #[derive(Copy, Clone, Default)]
 pub struct Draw {
@@ -47,11 +48,12 @@ fn parse_draw(input: &mut &BStr) -> PResult<Draw> {
         separated_pair(
             dec_uint,
             " ",
-            alt((
-                "red".value(Color::Red),
-                "green".value(Color::Green),
-                "blue".value(Color::Blue),
-            )),
+            dispatch! { any;
+                b'r' => take(2usize).value(Color::Red),
+                b'g' => take(4usize).value(Color::Green),
+                b'b' => take(3usize).value(Color::Blue),
+                _ => fail,
+            },
         ),
         ", ",
     )

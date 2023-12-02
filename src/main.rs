@@ -14,6 +14,7 @@ fn main() {
 
     let solver = match args.day {
         1 => aoc_2023::day::day01::solve,
+        2 => aoc_2023::day::day02::solve,
         _ => unimplemented!(),
     };
 

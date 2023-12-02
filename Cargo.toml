@@ -16,3 +16,7 @@ codegen-units = 1
 [[bench]]
 name = "day01"
 harness = false
+
+[[bench]]
+name = "day02"
+harness = false

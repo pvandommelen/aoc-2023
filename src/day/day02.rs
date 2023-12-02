@@ -1,6 +1,6 @@
 use crate::solution::Solution;
 use winnow::ascii::dec_uint;
-use winnow::combinator::{alt, separated, separated_pair};
+use winnow::combinator::{alt, separated, separated_foldl1, separated_pair};
 use winnow::prelude::*;
 use winnow::stream::Accumulate;
 
@@ -35,7 +35,7 @@ impl Accumulate<(u8, Color)> for Draw {
 #[derive(Clone)]
 pub struct Game {
     id: u8,
-    draws: Vec<Draw>,
+    largest_draw: Draw,
 }
 
 type PreparedInput = Vec<Game>;
@@ -61,8 +61,13 @@ fn parse_game(input: &mut &str) -> PResult<Game> {
     let id = dec_uint(input)?;
     ": ".parse_next(input)?;
 
-    let draws = separated(1.., parse_draw, "; ").parse_next(input)?;
-    Ok(Game { id, draws })
+    let largest_draw = separated_foldl1(parse_draw, "; ", |largest_draw, _, draw| Draw {
+        red: largest_draw.red.max(draw.red),
+        green: largest_draw.green.max(draw.green),
+        blue: largest_draw.blue.max(draw.blue),
+    })
+    .parse_next(input)?;
+    Ok(Game { id, largest_draw })
 }
 
 pub fn prepare(input: &str) -> PreparedInput {
@@ -73,9 +78,9 @@ pub fn solve_part1(input: &PreparedInput) -> u32 {
     input
         .iter()
         .filter(|game| {
-            game.draws
-                .iter()
-                .all(|draw| draw.red <= 12 && draw.green <= 13 && draw.blue <= 14)
+            game.largest_draw.red <= 12
+                && game.largest_draw.green <= 13
+                && game.largest_draw.blue <= 14
         })
         .map(|game| game.id as u32)
         .sum()
@@ -85,15 +90,9 @@ pub fn solve_part2(input: &PreparedInput) -> u32 {
     input
         .iter()
         .map(|game| {
-            let required = game
-                .draws
-                .iter()
-                .fold(Draw::default(), |required, draw| Draw {
-                    red: required.red.max(draw.red),
-                    green: required.green.max(draw.green),
-                    blue: required.blue.max(draw.blue),
-                });
-            required.red as u32 * required.green as u32 * required.blue as u32
+            game.largest_draw.red as u32
+                * game.largest_draw.green as u32
+                * game.largest_draw.blue as u32
         })
         .sum()
 }

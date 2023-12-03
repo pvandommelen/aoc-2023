@@ -75,10 +75,8 @@ pub fn solve_part1(input: &PreparedInput) -> u32 {
 pub fn solve_part2(input: &PreparedInput) -> u32 {
     let (numbers, grid) = input;
     grid.iter()
-        .map(|(pos, cell)| {
-            if !matches!(cell, Cell::Gear) {
-                return 0;
-            }
+        .filter(|(_, cell)| matches!(cell, Cell::Gear))
+        .map(|(pos, _)| {
             let j_range = pos.0.saturating_sub(1)..=(pos.0 + 1).min(grid.dimensions.0 - 1);
             // No fix is necessary on the bound in the x-direction because it is not used in indices.
             let i_range = pos.1.saturating_sub(1)..=(pos.1 + 1);

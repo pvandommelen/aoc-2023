@@ -1,10 +1,11 @@
 use crate::solution::Solution;
+use bstr::ByteSlice;
 use winnow::ascii::dec_uint;
 use winnow::combinator::{fail, separated, separated_foldl1, separated_pair};
+use winnow::dispatch;
 use winnow::prelude::*;
 use winnow::stream::Accumulate;
 use winnow::token::{any, take};
-use winnow::{dispatch, BStr};
 
 #[derive(Copy, Clone, Default)]
 pub struct Draw {
@@ -40,7 +41,7 @@ pub struct Game {
     largest_draw: Draw,
 }
 
-fn parse_draw(input: &mut &BStr) -> PResult<Draw> {
+fn parse_draw(input: &mut &[u8]) -> PResult<Draw> {
     separated(
         1..,
         separated_pair(
@@ -57,7 +58,7 @@ fn parse_draw(input: &mut &BStr) -> PResult<Draw> {
     )
     .parse_next(input)
 }
-fn parse_game(input: &mut &BStr) -> PResult<Game> {
+fn parse_game(input: &mut &[u8]) -> PResult<Game> {
     "Game ".parse_next(input)?;
     let id = dec_uint(input)?;
     ": ".parse_next(input)?;
@@ -73,8 +74,9 @@ fn parse_game(input: &mut &BStr) -> PResult<Game> {
 
 pub fn prepare(input: &str) -> impl Iterator<Item = Game> + '_ {
     input
+        .as_bytes()
         .lines()
-        .map(|line| parse_game.parse(line.into()).unwrap())
+        .map(|line| parse_game.parse(line).unwrap())
 }
 
 pub fn solve(input: &str) -> (Solution, Solution) {

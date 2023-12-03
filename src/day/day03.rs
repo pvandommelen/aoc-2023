@@ -1,5 +1,6 @@
 use crate::solution::Solution;
 use crate::util::grid::Grid;
+use bstr::ByteSlice;
 use std::ops::Range;
 use winnow::ascii::dec_uint;
 use winnow::combinator::{delimited, separated};
@@ -18,9 +19,9 @@ type PreparedInput = (Vec<Vec<(u32, Range<usize>)>>, Grid<Cell>);
 
 pub fn prepare(input: &str) -> PreparedInput {
     let numbers = input
+        .as_bytes()
         .lines()
         .map(|line| {
-            let line = line.as_bytes();
             delimited(
                 winnow::token::take_till0('0'..='9'),
                 separated(
@@ -35,8 +36,8 @@ pub fn prepare(input: &str) -> PreparedInput {
         })
         .collect::<Vec<_>>();
 
-    let grid = Grid::from_rows(input.lines().map(|line| {
-        line.as_bytes().iter().map(|c| match c {
+    let grid = Grid::from_rows(input.as_bytes().lines().map(|line| {
+        line.iter().map(|c| match c {
             b'0'..=b'9' => Cell::Number(c - b'0'),
             b'.' => Cell::None,
             b'*' => Cell::Gear,

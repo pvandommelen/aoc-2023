@@ -1,16 +1,16 @@
 use crate::solution::Solution;
+use bstr::ByteSlice;
 
-type PreparedInput<'a> = Vec<&'a str>;
+type PreparedInput<'a> = Vec<&'a [u8]>;
 
 pub fn prepare(input: &str) -> PreparedInput<'_> {
-    input.lines().collect()
+    input.as_bytes().lines().collect()
 }
 
 pub fn solve_part1(input: &PreparedInput) -> u32 {
     input
         .iter()
         .map(|&line| {
-            let line = line.as_bytes();
             let first_digit = line.iter().find(|c| c.is_ascii_digit()).unwrap() - b'0';
             let last_digit = line.iter().rev().find(|c| c.is_ascii_digit()).unwrap() - b'0';
 
@@ -60,8 +60,6 @@ pub fn solve_part2(input: &PreparedInput) -> u32 {
     input
         .iter()
         .map(|&line| {
-            let line = line.as_bytes();
-
             // Extracting the duplicate closure results is significantly slower.
             let first_digit = line
                 .iter()

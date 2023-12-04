@@ -1,32 +1,41 @@
 use crate::solution::Solution;
 use bstr::ByteSlice;
 use rustc_hash::FxHashSet;
-use winnow::ascii::{dec_uint, space0, space1};
-use winnow::combinator::{preceded, separated, separated_pair};
+use winnow::ascii::{dec_uint, space1};
+use winnow::combinator::separated;
 use winnow::prelude::*;
+use winnow::token::take_till0;
 
 type PreparedInput = Vec<usize>;
+
+fn parse_card(input: &mut &[u8]) -> PResult<usize> {
+    (take_till0(':'), ':', space1).parse_next(input)?;
+
+    let winning = separated(1.., dec_uint::<_, u8, _>, space1)
+        .map(|v: Vec<_>| v.into_iter().collect::<FxHashSet<u8>>())
+        .parse_next(input)?;
+
+    " |".parse_next(input)?;
+
+    let mut count = 0;
+    loop {
+        if space1::<_, ()>.parse_next(input).is_err() {
+            break;
+        };
+        let num = dec_uint::<_, u8, _>.parse_next(input)?;
+        if winning.contains(&num) {
+            count += 1;
+        }
+    }
+
+    Ok(count)
+}
 
 pub fn prepare(input: &str) -> PreparedInput {
     input
         .as_bytes()
         .lines()
-        .map(|line| {
-            preceded(
-                ("Card", space1, dec_uint::<_, u8, ()>, ": "),
-                separated_pair(
-                    separated(1.., preceded(space0, dec_uint::<_, u8, ()>), " ")
-                        .map(|v: Vec<_>| v.into_iter().collect::<FxHashSet<_>>()),
-                    " | ",
-                    separated(1.., preceded(space0, dec_uint::<_, u8, ()>), " "),
-                )
-                .map(|(winning, mine): (FxHashSet<_>, Vec<_>)| {
-                    mine.iter().filter(|&m| winning.contains(m)).count()
-                }),
-            )
-            .parse(line)
-            .unwrap()
-        })
+        .map(|line| parse_card.parse(line).unwrap())
         .collect::<Vec<_>>()
 }
 

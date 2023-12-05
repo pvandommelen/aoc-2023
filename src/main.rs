@@ -6,33 +6,45 @@ use std::time::Instant;
 struct Args {
     /// Day
     #[arg(short, long)]
-    day: u8,
+    day: Option<usize>,
+}
+
+fn read_input(day: usize) -> String {
+    std::fs::read_to_string(format!("./input/day{:0>2}.txt", day)).unwrap()
 }
 
 fn main() {
     let args = Args::parse();
 
-    let solver = match args.day {
-        1 => aoc_2023::day::day01::solve,
-        2 => aoc_2023::day::day02::solve,
-        3 => aoc_2023::day::day03::solve,
-        4 => aoc_2023::day::day04::solve,
-        5 => aoc_2023::day::day05::solve,
-        _ => unimplemented!(),
+    let all_days = [
+        aoc_2023::day::day01::solve,
+        aoc_2023::day::day02::solve,
+        aoc_2023::day::day03::solve,
+        aoc_2023::day::day04::solve,
+        aoc_2023::day::day05::solve,
+    ];
+
+    let day_and_solver: Vec<_> = match args.day {
+        None => all_days
+            .into_iter()
+            .enumerate()
+            .map(|(i, solve)| (i + 1, solve))
+            .collect(),
+        Some(d) => vec![(d, all_days[d - 1])],
     };
 
-    let input = std::fs::read_to_string(format!("./input/day{:0>2}.txt", args.day)).unwrap();
-
     let start = Instant::now();
+    day_and_solver.into_iter().for_each(|(day, solver)| {
+        let input = read_input(day);
 
-    let (p1, p2) = solver(&input);
+        let start = Instant::now();
+        let (p1, p2) = solver(&input);
+        let end = Instant::now();
 
+        println!("day{}/part1: {}", day, p1);
+        println!("day{}/part2: {}", day, p2);
+        println!("day{}/solve_time: {:?}", day, end - start);
+    });
     let end = Instant::now();
-
-    println!("day{}/part1: {}", args.day, p1);
-    println!("day{}/part2: {}", args.day, p2);
-    println!(
-        "Execution time: {:.2} ms",
-        ((end - start).as_micros() as f64) / 1000f64
-    );
+    println!("Total solve_time: {:?}", end - start);
 }

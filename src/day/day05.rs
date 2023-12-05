@@ -65,6 +65,17 @@ pub fn solve_part1(input: &PreparedInput) -> u64 {
     numbers.into_iter().min().unwrap()
 }
 
+fn range_intersect<T>(a: &Range<T>, b: &Range<T>) -> Option<Range<T>>
+where
+    T: PartialOrd + Ord + Copy,
+{
+    if a.end < b.start || a.start > b.end {
+        None
+    } else {
+        Some(a.start.max(b.start)..a.end.min(b.end))
+    }
+}
+
 pub fn solve_part2(input: &PreparedInput) -> u64 {
     let (seeds, mappings) = input;
     let numbers = mappings.iter().fold(
@@ -82,17 +93,18 @@ pub fn solve_part2(input: &PreparedInput) -> u64 {
                         if previous.end < input_start {
                             break;
                         }
-                        if previous.start < input_start + length && previous.end > input_start {
-                            if previous.start < input_start {
-                                result.push(previous.start..input_start);
-                                previous.start = input_start;
+                        match range_intersect(&previous, &(input_start..input_start + length)) {
+                            None => {}
+                            Some(intersection) => {
+                                if intersection.start > previous.start {
+                                    result.push(previous.start..intersection.start);
+                                }
+                                result.push(
+                                    intersection.start - input_start + output_start
+                                        ..intersection.end - input_start + output_start,
+                                );
+                                previous.start = intersection.end;
                             }
-                            result.push(
-                                previous.start - input_start + output_start
-                                    ..previous.end.min(input_start + length) - input_start
-                                        + output_start,
-                            );
-                            previous.start = input_start + length;
                         }
                     }
                     if previous.end > previous.start {

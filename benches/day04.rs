@@ -8,8 +8,6 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     let input_filepath = format!("./input/{}.txt", problem_name.to_str().unwrap());
     let input = fs::read_to_string(input_filepath).expect("Unable to read input file");
 
-    let prepared_input = prepare(&input);
-
     let mut group = c.benchmark_group(problem_name.to_str().unwrap());
     group.bench_function("solve", |b| b.iter(|| solve(black_box(&input))));
 

@@ -17,6 +17,7 @@ fn main() {
         2 => aoc_2023::day::day02::solve,
         3 => aoc_2023::day::day03::solve,
         4 => aoc_2023::day::day04::solve,
+        5 => aoc_2023::day::day05::solve,
         _ => unimplemented!(),
     };
 

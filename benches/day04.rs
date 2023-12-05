@@ -11,13 +11,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     let prepared_input = prepare(&input);
 
     let mut group = c.benchmark_group(problem_name.to_str().unwrap());
-    group.bench_function("parse", |b| b.iter(|| prepare(black_box(&input))));
-    group.bench_function("part1", |b| {
-        b.iter(|| solve_part1(black_box(&prepared_input)))
-    });
-    group.bench_function("part2", |b| {
-        b.iter(|| solve_part2(black_box(&prepared_input)))
-    });
+    group.bench_function("solve", |b| b.iter(|| solve(black_box(&input))));
 
     group.finish();
 }

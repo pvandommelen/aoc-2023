@@ -1,4 +1,5 @@
 use crate::solution::Solution;
+use std::mem::swap;
 use winnow::ascii::{dec_uint, digit1, space1};
 use winnow::combinator::{preceded, separated, separated_pair};
 use winnow::prelude::*;
@@ -55,13 +56,24 @@ pub fn prepare_part2(input: &str) -> Race {
     .unwrap()
 }
 
-pub fn solve_part(input: &[Race]) -> usize {
+fn solve_quadratic(a: f64, b: f64, c: f64) -> (f64, f64) {
+    let rt = (b * b - 4f64 * a * c).sqrt();
+    ((-b - rt) / (2f64 * a), (-b + rt) / (2f64 * a))
+}
+
+pub fn solve_part(input: &[Race]) -> u64 {
     input
         .iter()
         .map(|game| {
-            (1..game.time_ms)
-                .filter(|hold_time| hold_time * (game.time_ms - hold_time) > game.distance_mm)
-                .count()
+            let (mut a, mut b) =
+                solve_quadratic(-1f64, game.time_ms as f64, -(game.distance_mm as f64));
+            if a > b {
+                swap(&mut a, &mut b);
+            }
+
+            let first_win = a.floor() as u64 + 1;
+            let last_win = b.ceil() as u64 - 1;
+            last_win - first_win + 1
         })
         .reduce(|acc, c| acc * c)
         .unwrap()

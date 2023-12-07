@@ -23,6 +23,7 @@ fn main() {
         aoc_2023::day::day04::solve,
         aoc_2023::day::day05::solve,
         aoc_2023::day::day06::solve,
+        aoc_2023::day::day07::solve,
     ];
 
     let day_and_solver: Vec<_> = match args.day {

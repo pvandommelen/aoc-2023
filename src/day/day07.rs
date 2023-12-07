@@ -3,7 +3,7 @@ use bstr::ByteSlice;
 use winnow::ascii::dec_uint;
 use winnow::Parser;
 
-type Hand = [u8; 5];
+type Hand = u32;
 
 type PreparedInput = Vec<(Hand, u16)>;
 
@@ -12,20 +12,18 @@ pub fn prepare(input: &str) -> PreparedInput {
         .as_bytes()
         .lines()
         .map(|line| {
-            let hand: Hand = line[0..5]
-                .iter()
-                .map(|c| match c {
-                    b'2'..=b'9' => c - b'0',
-                    b'A' => 14,
-                    b'K' => 13,
-                    b'Q' => 12,
-                    b'J' => 11,
-                    b'T' => 10,
-                    _ => panic!(),
-                })
-                .collect::<Vec<_>>()
-                .try_into()
-                .unwrap();
+            let hand: Hand = line[0..5].iter().fold(0u32, |num, c| {
+                (num << 4)
+                    + match c {
+                        b'2'..=b'9' => (c - b'0') as u32,
+                        b'A' => 14,
+                        b'K' => 13,
+                        b'Q' => 12,
+                        b'J' => 11,
+                        b'T' => 10,
+                        _ => panic!(),
+                    }
+            });
 
             let bid: u16 = dec_uint::<_, _, ()>.parse(&line[6..]).unwrap();
             (hand, bid)
@@ -56,29 +54,24 @@ where
 fn score_hand<const JOKER: bool>(hand: &Hand) -> u32 {
     let mut hand = *hand;
 
-    let mut map = [0u8; 15];
+    let mut map = [0u8; 13];
     let mut joker_count = 0;
-    hand.iter_mut().for_each(|card| {
-        if JOKER && *card == 11 {
+    for i in 0..5 {
+        let card = hand >> ((4 - i) * 4) & 15;
+        if JOKER && card == 11 {
             joker_count += 1;
-            *card = 0;
+            hand &= !(15 << ((4 - i) * 4));
         } else {
-            map[*card as usize] += 1;
+            map[card as usize - 2] += 1;
         }
-    });
+    }
 
     let [mut a, b] = top_two(map, 0);
     if JOKER {
         a += joker_count;
     }
 
-    ((a as u32) << 23)
-        + ((b as u32) << 20)
-        + ((hand[0] as u32) << 16)
-        + ((hand[1] as u32) << 12)
-        + ((hand[2] as u32) << 8)
-        + ((hand[3] as u32) << 4)
-        + (hand[4] as u32)
+    ((a as u32) << 23) + ((b as u32) << 20) + hand
 }
 
 fn solve_joker<const JOKER: bool>(input: &PreparedInput) -> u64 {

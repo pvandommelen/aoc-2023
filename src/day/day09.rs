@@ -1,49 +1,41 @@
 use crate::solution::Solution;
+use bstr::ByteSlice;
 use winnow::ascii::dec_int;
 use winnow::combinator::separated;
 use winnow::prelude::*;
 
-type PreparedInput = Vec<Vec<i32>>;
-
-pub fn prepare(input: &str) -> PreparedInput {
-    input
-        .lines()
-        .map(|line| {
-            separated(1.., dec_int::<_, i32, ()>, " ")
-                .parse(line)
-                .unwrap()
-        })
-        .collect()
+pub fn prepare(input: &str) -> impl Iterator<Item = Vec<i32>> + '_ {
+    input.as_bytes().lines().map(|line| {
+        separated(1.., dec_int::<_, i32, ()>, " ")
+            .parse(line)
+            .unwrap()
+    })
 }
 
-pub fn solve_both_parts(input: &PreparedInput) -> (i32, i32) {
+pub fn solve_both_parts<Input>(input: Input) -> (i32, i32)
+where
+    Input: Iterator<Item = Vec<i32>>,
+{
     input
-        .iter()
-        .map(|sequence| -> (i32, i32) {
-            let mut first_values = vec![];
-            let mut last_values = vec![];
-            let mut sequence = sequence.clone();
+        .map(|mut sequence| -> (i32, i32) {
+            let mut first_value = sequence[0];
+            let mut last_value = sequence[sequence.len() - 1];
+            let mut i = 0;
             loop {
-                first_values.push(*sequence.first().unwrap());
-                last_values.push(*sequence.last().unwrap());
-                sequence = sequence
-                    .windows(2)
-                    .map(|window| window[1] - window[0])
-                    .collect();
-                if sequence.iter().all(|num| *num == 0) {
-                    break (
-                        last_values
-                            .into_iter()
-                            .rev()
-                            .reduce(|num, last| num + last)
-                            .unwrap(),
-                        first_values
-                            .into_iter()
-                            .rev()
-                            .reduce(|num, first| first - num)
-                            .unwrap(),
-                    );
+                for i in 0..sequence.len() - 1 {
+                    sequence[i] = sequence[i + 1] - sequence[i];
                 }
+                sequence.pop();
+                if sequence.iter().all(|num| *num == 0) {
+                    break (last_value, first_value);
+                }
+                if i % 2 == 0 {
+                    first_value -= sequence[0];
+                } else {
+                    first_value += sequence[0];
+                }
+                last_value += sequence[sequence.len() - 1];
+                i += 1;
             }
         })
         .reduce(|(part1_sum, part2_sum), (part1, part2)| (part1_sum + part1, part2_sum + part2))
@@ -52,7 +44,7 @@ pub fn solve_both_parts(input: &PreparedInput) -> (i32, i32) {
 
 pub fn solve(input: &str) -> (Solution, Solution) {
     let input = prepare(input);
-    let output = solve_both_parts(&input);
+    let output = solve_both_parts(input);
     (output.0.into(), output.1.into())
 }
 
@@ -65,14 +57,14 @@ mod tests {
 10 13 16 21 30 45";
     #[test]
     fn example_prepare() {
-        assert_eq!(prepare(EXAMPLE_INPUT).len(), 3);
+        assert_eq!(prepare(EXAMPLE_INPUT).count(), 3);
     }
     #[test]
     fn example_part1() {
-        assert_eq!(solve_both_parts(&prepare(EXAMPLE_INPUT)).0, 114);
+        assert_eq!(solve_both_parts(prepare(EXAMPLE_INPUT)).0, 114);
     }
     #[test]
     fn example_part2() {
-        assert_eq!(solve_both_parts(&prepare(EXAMPLE_INPUT)).1, 2);
+        assert_eq!(solve_both_parts(prepare(EXAMPLE_INPUT)).1, 2);
     }
 }

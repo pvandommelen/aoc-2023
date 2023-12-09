@@ -1,4 +1,5 @@
 use crate::solution::Solution;
+use num::integer::lcm;
 use rustc_hash::FxHashMap;
 use winnow::ascii::alphanumeric1;
 use winnow::combinator::{alt, delimited, repeat, separated, separated_pair};
@@ -59,32 +60,6 @@ pub fn solve_part1(input: &PreparedInput) -> usize {
         })
         .unwrap()
         + 1
-}
-
-/// Greatest common divisor calculation using Euclidean_algorithm (https://en.wikipedia.org/wiki/Greatest_common_divisor#Euclidean_algorithm)
-fn gcd<T>(a: T, b: T) -> T
-where
-    T: Copy,
-    T: Ord + Eq + std::ops::Rem<Output = T> + Default,
-{
-    let mut largest = a.max(b);
-    let mut smallest = a.min(b);
-    loop {
-        if smallest == Default::default() {
-            break largest;
-        }
-        (largest, smallest) = (smallest, largest % smallest);
-    }
-}
-
-/// Least common multiple calculation using the GCD (https://en.wikipedia.org/wiki/Least_common_multiple#Using_the_greatest_common_divisor)
-fn lcm<T>(a: T, b: T) -> T
-where
-    T: Copy,
-    T: std::ops::Div<Output = T> + std::ops::Mul<Output = T>,
-    T: Ord + Eq + std::ops::Rem<Output = T> + Default,
-{
-    b / gcd(a, b) * a
 }
 
 pub fn solve_part2(input: &PreparedInput) -> usize {

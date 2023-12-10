@@ -1,5 +1,6 @@
 use crate::solution::Solution;
 use crate::util::grid::Grid;
+use crate::util::position::Position;
 use bstr::ByteSlice;
 use std::ops::Range;
 use winnow::ascii::dec_uint;
@@ -77,9 +78,9 @@ pub fn solve_part2(input: &PreparedInput) -> u32 {
     grid.iter()
         .filter(|(_, cell)| matches!(cell, Cell::Gear))
         .map(|(pos, _)| {
-            let j_range = pos.0.saturating_sub(1)..=(pos.0 + 1).min(grid.dimensions.0 - 1);
+            let j_range = pos.y().saturating_sub(1)..=(pos.y() + 1).min(grid.dimensions.0 - 1);
             // No fix is necessary on the bound in the x-direction because it is not used in indices.
-            let i_range = pos.1.saturating_sub(1)..=(pos.1 + 1);
+            let i_range = pos.x().saturating_sub(1)..=(pos.x() + 1);
 
             let mut matching_numbers_mult = 1u32;
             let mut matching_numbers_count = 0u8;

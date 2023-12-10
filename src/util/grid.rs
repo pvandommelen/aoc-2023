@@ -1,9 +1,58 @@
+use crate::util::position::{Direction, Position};
+use std::hash::Hasher;
 use std::ops::{Index, IndexMut};
 
 #[derive(Clone)]
 pub struct Grid<T> {
     pub dimensions: (usize, usize),
     data: Vec<T>,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct GridPosition {
+    offset: usize,
+    row_stride: usize,
+}
+impl From<GridPosition> for (usize, usize) {
+    fn from(value: GridPosition) -> Self {
+        (value.y(), value.x())
+    }
+}
+
+impl GridPosition {
+    fn with_offset(self, offset: usize) -> Self {
+        Self {
+            offset,
+            row_stride: self.row_stride,
+        }
+    }
+}
+
+impl std::hash::Hash for GridPosition {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_usize(self.offset);
+    }
+}
+
+impl Position for GridPosition {
+    #[inline]
+    fn y(&self) -> usize {
+        self.offset / self.row_stride
+    }
+    #[inline]
+    fn x(&self) -> usize {
+        self.offset % self.row_stride
+    }
+
+    #[must_use]
+    fn with_direction(self, direction: &Direction) -> Self {
+        match direction {
+            Direction::Up => self.with_offset(self.offset - self.row_stride),
+            Direction::Down => self.with_offset(self.offset + self.row_stride),
+            Direction::Right => self.with_offset(self.offset + 1),
+            Direction::Left => self.with_offset(self.offset - 1),
+        }
+    }
 }
 
 impl<T> Grid<T> {
@@ -51,25 +100,28 @@ impl<T> Grid<T> {
         self.dimensions.0 * self.dimensions.1
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = ((usize, usize), &T)> + '_ {
-        self.data
-            .iter()
-            .enumerate()
-            .map(|(i, value)| ((i / self.dimensions.1, i % self.dimensions.1), value))
+    pub fn iter(&self) -> impl Iterator<Item = (GridPosition, &T)> + '_ {
+        self.data.iter().enumerate().map(|(i, value)| {
+            (
+                GridPosition {
+                    offset: i,
+                    row_stride: self.dimensions.1,
+                },
+                value,
+            )
+        })
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = ((usize, usize), &mut T)> + '_ {
-        self.data
-            .iter_mut()
-            .enumerate()
-            .map(|(i, value)| ((i / self.dimensions.1, i % self.dimensions.1), value))
-    }
-
-    pub fn rows_mut(&mut self) -> impl Iterator<Item = &mut [T]> + '_
-    where
-        T: Send,
-    {
-        self.data.chunks_mut(self.dimensions.1)
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (GridPosition, &mut T)> + '_ {
+        self.data.iter_mut().enumerate().map(|(i, value)| {
+            (
+                GridPosition {
+                    offset: i,
+                    row_stride: self.dimensions.1,
+                },
+                value,
+            )
+        })
     }
 
     pub fn values(&self) -> impl Iterator<Item = &T> + '_ {
@@ -77,13 +129,15 @@ impl<T> Grid<T> {
     }
 
     #[inline]
-    pub fn get(&self, pos: &(usize, usize)) -> &T {
-        &self.data[pos.0 * self.dimensions.1 + pos.1]
+    pub fn get<P: Position>(&self, pos: &P) -> &T {
+        let offset = pos.y() * self.dimensions.1 + pos.x();
+        &self.data[offset]
     }
 
     #[inline]
-    pub fn set(&mut self, pos: &(usize, usize), value: T) {
-        self.data[pos.0 * self.dimensions.1 + pos.1] = value;
+    pub fn set<P: Position>(&mut self, pos: &P, value: T) {
+        let offset = pos.y() * self.dimensions.1 + pos.x();
+        self.data[offset] = value;
     }
 }
 impl<T> Index<usize> for Grid<T> {
@@ -136,7 +190,7 @@ impl Grid<bool> {
     }
 
     #[inline]
-    pub fn contains(&self, pos: &(usize, usize)) -> bool {
+    pub fn contains(&self, pos: &GridPosition) -> bool {
         *self.get(pos)
     }
 
@@ -149,6 +203,14 @@ impl Extend<(usize, usize)> for Grid<bool> {
     fn extend<T: IntoIterator<Item = (usize, usize)>>(&mut self, iter: T) {
         iter.into_iter().for_each(|position: (usize, usize)| {
             self[position.0][position.1] = true;
+        });
+    }
+}
+
+impl<T: Position> Extend<T> for Grid<bool> {
+    fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
+        iter.into_iter().for_each(|position| {
+            self[position.y()][position.x()] = true;
         });
     }
 }
@@ -176,153 +238,43 @@ impl<'a, I> BackedGrid<'a, I> {
         }
     }
 
-    pub fn size(&self) -> usize {
-        self.dimensions.0 * self.dimensions.1
-    }
-
     #[inline]
-    pub fn get<T>(&self, pos: &(usize, usize)) -> T
+    pub fn get<T>(&self, pos: &GridPosition) -> T
     where
         &'a I: Into<T>,
     {
-        (&self.data[pos.0 * self.row_stride + pos.1]).into()
+        (&self.data[pos.offset]).into()
     }
 
-    pub fn iter<T>(&'a self) -> impl Iterator<Item = ((usize, usize), T)> + '_
+    pub fn iter<T>(&'a self) -> impl Iterator<Item = (GridPosition, T)> + '_
     where
         &'a I: Into<T>,
     {
         self.data.iter().enumerate().filter_map(move |(i, value)| {
-            let pos = (i / self.row_stride, i % self.row_stride);
-            if pos.1 >= self.dimensions.1 {
+            if i % self.row_stride >= self.dimensions.1 {
                 None
             } else {
-                Some((pos, value.into()))
+                Some((
+                    GridPosition {
+                        offset: i,
+                        row_stride: self.row_stride,
+                    },
+                    value.into(),
+                ))
             }
         })
     }
-}
 
-#[derive(Clone)]
-pub struct BufferedRingGrid<T> {
-    inner: Grid<T>,
-    pub dimensions: (usize, usize),
-}
-impl<T> BufferedRingGrid<T> {
-    pub fn from_dimensions(dimensions: (usize, usize), value: T) -> Self
-    where
-        T: Clone,
-    {
-        Self {
-            dimensions,
-            inner: Grid::from_dimensions((dimensions.0 + 2, dimensions.1 + 2), value),
-        }
-    }
-
-    pub fn size(&self) -> usize {
-        self.dimensions.0 * self.dimensions.1
-    }
-
-    pub fn count_neighbours_with_diagonals<F>(&self, f: F, y: usize, x: usize) -> u32
-    where
-        F: Fn(&T) -> bool,
-    {
-        assert!(y < self.dimensions.0);
-        assert!(x < self.dimensions.1);
-        let mut count = 0;
-        for j in 0..3 {
-            for i in 0..3 {
-                if i == 1 && j == 1 {
-                    continue;
-                }
-
-                // SAFETY:
-                // The guard at the top of the function verified the dimension constraints.
-                // The construction method for the struct should have verified that the data size matches the dimensions.
-                let value = unsafe {
-                    self.inner
-                        .data
-                        .get_unchecked((y + j) * self.inner.dimensions.1 + x + i)
-                };
-                if f(value) {
-                    count += 1;
-                }
-            }
-        }
-        count
-    }
-
-    pub fn has_neighbours_with_diagonals<F>(&self, f: F, y: usize, x: usize) -> bool
-    where
-        F: Fn(&T) -> bool,
-    {
-        self.count_neighbours_with_diagonals(f, y, x) > 0
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = ((usize, usize), &T)> + '_ {
-        self.inner.iter().filter_map(|(pos, value): (_, &T)| {
-            if pos.0 == 0
-                || pos.1 == 0
-                || pos.0 == self.dimensions.0 + 1
-                || pos.1 == self.dimensions.1 + 1
-            {
-                return None;
-            }
-            Some(((pos.0 - 1, pos.1 - 1), value))
-        })
-    }
-
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = ((usize, usize), &mut T)> + '_ {
-        self.inner
-            .iter_mut()
-            .filter_map(|(pos, value): (_, &mut T)| {
-                if pos.0 == 0
-                    || pos.1 == 0
-                    || pos.0 == self.dimensions.0 + 1
-                    || pos.1 == self.dimensions.1 + 1
-                {
-                    return None;
-                }
-                Some(((pos.0 - 1, pos.1 - 1), value))
-            })
-    }
-
-    pub fn rows_mut(&mut self) -> impl Iterator<Item = &mut [T]> + '_
-    where
-        T: Send,
-    {
-        self.inner.rows_mut().enumerate().filter_map(|(j, row)| {
-            if j == 0 || j == self.dimensions.0 + 1 {
+    pub fn positions(&self) -> impl Iterator<Item = GridPosition> + '_ {
+        self.data.iter().enumerate().filter_map(move |(i, _)| {
+            if i % self.row_stride >= self.dimensions.1 {
                 None
             } else {
-                Some(&mut row[1..self.dimensions.1 + 1])
+                Some(GridPosition {
+                    offset: i,
+                    row_stride: self.row_stride,
+                })
             }
         })
-    }
-
-    pub fn values(&self) -> impl Iterator<Item = &T> + '_ {
-        self.iter().map(|(_, value)| value)
-    }
-}
-
-impl<A> Extend<((usize, usize), A)> for BufferedRingGrid<A> {
-    fn extend<T: IntoIterator<Item = ((usize, usize), A)>>(&mut self, iter: T) {
-        iter.into_iter().for_each(|(position, value)| {
-            self[position.0][position.1] = value;
-        });
-    }
-}
-
-impl<T> Index<usize> for BufferedRingGrid<T> {
-    type Output = [T];
-
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.inner[index + 1][1..self.dimensions.1 + 1]
-    }
-}
-
-impl<T> IndexMut<usize> for BufferedRingGrid<T> {
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        &mut self.inner[index + 1][1..self.dimensions.1 + 1]
     }
 }

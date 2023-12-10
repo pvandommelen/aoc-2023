@@ -157,11 +157,11 @@ fn solve_parts(grid: &PreparedInput) -> (usize, usize) {
     let mut enclosed_entries = Grid::from_dimensions(grid.dimensions, false);
 
     let mut search = |mut pos: GridPosition, direction_to_search: &Direction| {
-        pos = pos.with_direction(direction_to_search);
-
-        while !visited_set.contains(&pos) {
-            enclosed_entries.set(&pos, true);
+        while {
             pos = pos.with_direction(direction_to_search);
+            !visited_set.contains(&pos)
+        } {
+            enclosed_entries.set(&pos, true);
         }
     };
 

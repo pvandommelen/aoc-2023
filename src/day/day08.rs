@@ -82,8 +82,8 @@ pub fn solve_part2(input: &PreparedInput) -> usize {
     map.keys()
         .filter(|key| key.ends_with(b'A'))
         .map(|mut current| {
-            let mut encountered = FxHashMap::default();
-            encountered.insert((0, current.to_owned()), 0);
+            let mut encountered = vec![FxHashMap::default(); directions.len() + 1];
+            encountered[0].insert(current.to_owned(), 0);
 
             let mut encountered_z_distance = vec![];
             let (cycle_start, cycle_distance) = (0..)
@@ -99,8 +99,8 @@ pub fn solve_part2(input: &PreparedInput) -> usize {
                     if current.ends_with(b'Z') {
                         encountered_z_distance.push(i + 1);
                     }
-                    encountered
-                        .insert((direction_offset + 1, current.to_owned()), i + 1)
+                    encountered[direction_offset + 1]
+                        .insert(current.to_owned(), i + 1)
                         .map(|existing| (existing, i + 1))
                 })
                 .unwrap();

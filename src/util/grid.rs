@@ -75,6 +75,16 @@ impl<T> Grid<T> {
     pub fn values(&self) -> impl Iterator<Item = &T> + '_ {
         self.data.iter()
     }
+
+    #[inline]
+    pub fn get(&self, pos: &(usize, usize)) -> &T {
+        &self.data[pos.0 * self.dimensions.1 + pos.1]
+    }
+
+    #[inline]
+    pub fn set(&mut self, pos: &(usize, usize), value: T) {
+        self.data[pos.0 * self.dimensions.1 + pos.1] = value;
+    }
 }
 impl<T> Index<usize> for Grid<T> {
     type Output = [T];
@@ -123,6 +133,73 @@ impl Grid<bool> {
             s.push('\n');
             s
         }))
+    }
+
+    #[inline]
+    pub fn contains(&self, pos: &(usize, usize)) -> bool {
+        *self.get(pos)
+    }
+
+    pub fn count(&self) -> usize {
+        self.values().filter(|value| **value).count()
+    }
+}
+
+impl Extend<(usize, usize)> for Grid<bool> {
+    fn extend<T: IntoIterator<Item = (usize, usize)>>(&mut self, iter: T) {
+        iter.into_iter().for_each(|position: (usize, usize)| {
+            self[position.0][position.1] = true;
+        });
+    }
+}
+
+pub struct BackedGrid<'a, I> {
+    data: &'a [I],
+    pub dimensions: (usize, usize),
+    row_stride: usize,
+}
+
+impl<'a, I> BackedGrid<'a, I> {
+    pub fn from_data_and_row_separator(data: &'a [I], separator: I) -> Self
+    where
+        I: Eq,
+    {
+        let width = data
+            .iter()
+            .position(|value| *value == separator)
+            .unwrap_or(data.len());
+        let row_stride = width + 1;
+        Self {
+            data,
+            dimensions: (data.len().div_ceil(row_stride), width),
+            row_stride,
+        }
+    }
+
+    pub fn size(&self) -> usize {
+        self.dimensions.0 * self.dimensions.1
+    }
+
+    #[inline]
+    pub fn get<T>(&self, pos: &(usize, usize)) -> T
+    where
+        &'a I: Into<T>,
+    {
+        (&self.data[pos.0 * self.row_stride + pos.1]).into()
+    }
+
+    pub fn iter<T>(&'a self) -> impl Iterator<Item = ((usize, usize), T)> + '_
+    where
+        &'a I: Into<T>,
+    {
+        self.data.iter().enumerate().filter_map(move |(i, value)| {
+            let pos = (i / self.row_stride, i % self.row_stride);
+            if pos.1 >= self.dimensions.1 {
+                None
+            } else {
+                Some((pos, value.into()))
+            }
+        })
     }
 }
 

@@ -1,7 +1,7 @@
 use crate::day::day10::Direction::{Down, Left, Right, Up};
+use crate::day::day10::RotationalDirection::{Anticlockwise, Clockwise};
 use crate::solution::Solution;
-use crate::util::grid::Grid;
-use rustc_hash::FxHashSet;
+use crate::util::grid::{BackedGrid, Grid};
 
 #[derive(PartialEq, Copy, Clone, Debug)]
 pub enum Element {
@@ -15,6 +15,23 @@ pub enum Element {
     SouthEast,
 }
 
+impl From<&u8> for Element {
+    fn from(value: &u8) -> Self {
+        match *value {
+            b'.' => Element::None,
+            b'S' => Element::Start,
+            b'|' => Element::Vertical,
+            b'-' => Element::Horizontal,
+            b'L' => Element::NorthEast,
+            b'J' => Element::NorthWest,
+            b'7' => Element::SouthWest,
+            b'F' => Element::SouthEast,
+            b'\n' => panic!("newline"),
+            _ => panic!(),
+        }
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Direction {
     Up = 0,
@@ -26,14 +43,24 @@ pub enum Direction {
 impl Direction {
     fn rotate(&self, rotational_direction: RotationalDirection) -> Self {
         match (self, rotational_direction) {
-            (Up, RotationalDirection::Clockwise) => Right,
-            (Up, RotationalDirection::Anticlockwise) => Left,
-            (Down, RotationalDirection::Clockwise) => Left,
-            (Down, RotationalDirection::Anticlockwise) => Right,
-            (Right, RotationalDirection::Clockwise) => Down,
-            (Right, RotationalDirection::Anticlockwise) => Up,
-            (Left, RotationalDirection::Clockwise) => Up,
-            (Left, RotationalDirection::Anticlockwise) => Down,
+            (Up, Clockwise) => Right,
+            (Up, Anticlockwise) => Left,
+            (Down, Clockwise) => Left,
+            (Down, Anticlockwise) => Right,
+            (Right, Clockwise) => Down,
+            (Right, Anticlockwise) => Up,
+            (Left, Clockwise) => Up,
+            (Left, Anticlockwise) => Down,
+        }
+    }
+
+    #[must_use]
+    fn evolve_position(&self, position: &(usize, usize)) -> (usize, usize) {
+        match self {
+            Up => (position.0 - 1, position.1),
+            Down => (position.0 + 1, position.1),
+            Right => (position.0, position.1 + 1),
+            Left => (position.0, position.1 - 1),
         }
     }
 
@@ -54,193 +81,148 @@ pub enum RotationalDirection {
 }
 
 impl RotationalDirection {
-    fn from_incoming_and_outgoing(incoming: Direction, outgoing: Direction) -> Option<Self> {
-        match (outgoing as u8 + 4 - incoming as u8) % 4 {
+    fn from_incoming_and_outgoing(incoming: &Direction, outgoing: &Direction) -> Option<Self> {
+        match (*outgoing as u8 + 4 - *incoming as u8) % 4 {
             0 => None,
-            1 => Some(RotationalDirection::Clockwise),
+            1 => Some(Clockwise),
             2 => None,
-            3 => Some(RotationalDirection::Anticlockwise),
+            3 => Some(Anticlockwise),
             _ => panic!(),
         }
     }
 }
 
-type PreparedInput = Grid<Element>;
+type PreparedInput<'a> = BackedGrid<'a, u8>;
 
-pub fn prepare(input: &str) -> Grid<Element> {
-    Grid::from_rows(input.lines().map(|line| {
-        line.chars().map(|c| match c {
-            '.' => Element::None,
-            'S' => Element::Start,
-            '|' => Element::Vertical,
-            '-' => Element::Horizontal,
-            'L' => Element::NorthEast,
-            'J' => Element::NorthWest,
-            '7' => Element::SouthWest,
-            'F' => Element::SouthEast,
-            _ => panic!(),
-        })
-    }))
+pub fn prepare(input: &str) -> PreparedInput<'_> {
+    BackedGrid::from_data_and_row_separator(input.as_bytes(), b'\n')
 }
 
-fn calc_loop(
-    grid: &PreparedInput,
-) -> (
-    Vec<((usize, usize), Direction, Direction)>,
-    RotationalDirection,
-) {
+fn calc_loop(grid: &PreparedInput) -> Vec<((usize, usize), Direction, Direction)> {
     let (start_pos, _) = grid
-        .iter()
-        .find(|(_, elem)| **elem == Element::Start)
+        .iter::<Element>()
+        .find(|(_, elem)| *elem == Element::Start)
         .unwrap();
 
     let neighbours = [
         // Up
         start_pos.0 > 0
             && matches!(
-                grid[start_pos.0 - 1][start_pos.1],
+                grid.get(&Up.evolve_position(&start_pos)),
                 Element::Vertical | Element::SouthEast | Element::SouthWest
             ),
         // Down
         start_pos.0 < grid.dimensions.0 - 1
             && matches!(
-                grid[start_pos.0 + 1][start_pos.1],
+                grid.get(&Down.evolve_position(&start_pos)),
                 Element::Vertical | Element::NorthEast | Element::NorthWest
             ),
         // Right
         start_pos.1 < grid.dimensions.1 - 1
             && matches!(
-                grid[start_pos.0][start_pos.1 + 1],
+                grid.get(&Right.evolve_position(&start_pos)),
                 Element::Horizontal | Element::NorthWest | Element::SouthWest
             ),
         // Left
         start_pos.1 > 0
             && matches!(
-                grid[start_pos.0][start_pos.1 - 1],
+                grid.get(&Left.evolve_position(&start_pos)),
                 Element::Horizontal | Element::NorthEast | Element::SouthEast
             ),
     ];
 
-    let (incoming_direction, outgoing_direction) = match neighbours {
-        [true, true, false, false] => (Direction::Down, Direction::Down),
-        [false, false, true, true] => (Direction::Right, Direction::Right),
-        [true, false, true, false] => (Direction::Down, Direction::Right),
-        [true, false, false, true] => (Direction::Down, Direction::Left),
-        [false, true, true, false] => (Direction::Up, Direction::Right),
-        [false, true, false, true] => (Direction::Up, Direction::Left),
+    let (mut incoming_direction, mut outgoing_direction) = match neighbours {
+        [true, true, false, false] => (Down, Down),
+        [false, false, true, true] => (Right, Right),
+        [true, false, true, false] => (Down, Right),
+        [true, false, false, true] => (Down, Left),
+        [false, true, true, false] => (Up, Right),
+        [false, true, false, true] => (Up, Left),
         _ => panic!(),
     };
 
-    let rotational_direction =
-        RotationalDirection::from_incoming_and_outgoing(incoming_direction, outgoing_direction);
-    let (mut clockwise_count, mut anticlockwise_count) = match rotational_direction {
-        None => (0, 0),
-        Some(RotationalDirection::Clockwise) => (1, 0),
-        Some(RotationalDirection::Anticlockwise) => (0, 1),
-    };
     let mut pos = start_pos;
-    let mut visited = vec![(pos, incoming_direction, outgoing_direction)];
-    let mut direction = outgoing_direction;
+    let mut visited = vec![];
     loop {
-        let (outgoing_pos, outgoing_direction) = match direction {
-            Direction::Up => (
-                (pos.0 - 1, pos.1),
-                match grid[pos.0 - 1][pos.1] {
-                    Element::Start => break,
-                    Element::Vertical => Direction::Up,
-                    Element::SouthWest => {
-                        anticlockwise_count += 1;
-                        Direction::Left
-                    }
-                    Element::SouthEast => {
-                        clockwise_count += 1;
-                        Direction::Right
-                    }
-                    _ => panic!(),
-                },
-            ),
-            Direction::Down => (
-                (pos.0 + 1, pos.1),
-                match grid[pos.0 + 1][pos.1] {
-                    Element::Start => break,
-                    Element::Vertical => Direction::Down,
-                    Element::NorthWest => {
-                        clockwise_count += 1;
-                        Direction::Left
-                    }
-                    Element::NorthEast => {
-                        anticlockwise_count += 1;
-                        Direction::Right
-                    }
-                    _ => panic!(),
-                },
-            ),
-            Direction::Right => (
-                (pos.0, pos.1 + 1),
-                match grid[pos.0][pos.1 + 1] {
-                    Element::Start => break,
-                    Element::Horizontal => Direction::Right,
-                    Element::SouthWest => {
-                        clockwise_count += 1;
-                        Direction::Down
-                    }
-                    Element::NorthWest => {
-                        anticlockwise_count += 1;
-                        Direction::Up
-                    }
-                    _ => panic!(),
-                },
-            ),
-            Direction::Left => (
-                (pos.0, pos.1 - 1),
-                match grid[pos.0][pos.1 - 1] {
-                    Element::Start => break,
-                    Element::Horizontal => Direction::Left,
-                    Element::NorthEast => {
-                        clockwise_count += 1;
-                        Direction::Up
-                    }
-                    Element::SouthEast => {
-                        anticlockwise_count += 1;
-                        Direction::Down
-                    }
-                    _ => panic!(),
-                },
-            ),
+        visited.push((pos, incoming_direction, outgoing_direction));
+
+        pos = outgoing_direction.evolve_position(&pos);
+        incoming_direction = outgoing_direction;
+        outgoing_direction = match incoming_direction {
+            Up => match grid.get(&pos) {
+                Element::Start => break,
+                Element::Vertical => Up,
+                Element::SouthWest => Left,
+                Element::SouthEast => Right,
+                _ => panic!(),
+            },
+            Down => match grid.get(&pos) {
+                Element::Start => break,
+                Element::Vertical => Down,
+                Element::NorthWest => Left,
+                Element::NorthEast => Right,
+                _ => panic!(),
+            },
+            Right => match grid.get(&pos) {
+                Element::Start => break,
+                Element::Horizontal => Right,
+                Element::SouthWest => Down,
+                Element::NorthWest => Up,
+                _ => panic!(),
+            },
+            Left => match grid.get(&pos) {
+                Element::Start => break,
+                Element::Horizontal => Left,
+                Element::NorthEast => Up,
+                Element::SouthEast => Down,
+                _ => panic!(),
+            },
         };
-        visited.push((outgoing_pos, direction, outgoing_direction));
-        pos = outgoing_pos;
-        direction = outgoing_direction;
     }
-    let rot_direction = if clockwise_count > anticlockwise_count {
-        assert_eq!(clockwise_count - anticlockwise_count, 4);
-        RotationalDirection::Clockwise
-    } else {
-        assert_eq!(anticlockwise_count - clockwise_count, 4);
-        RotationalDirection::Anticlockwise
-    };
-    (visited, rot_direction)
+    visited
 }
 
 pub fn solve_part1(grid: &PreparedInput) -> usize {
-    let (visited, _) = calc_loop(grid);
-    visited.len() / 2
+    solve_parts(grid).0
 }
 
 pub fn solve_part2(grid: &PreparedInput) -> usize {
-    let (visited, rot_direction) = calc_loop(grid);
-    let visited_set = visited
-        .iter()
-        .map(|(pos, _, _)| *pos)
-        .collect::<FxHashSet<(usize, usize)>>();
+    solve_parts(grid).1
+}
 
-    let mut enclosed_entries = FxHashSet::default();
+fn solve_parts(grid: &PreparedInput) -> (usize, usize) {
+    let visited = calc_loop(grid);
+    let part1_result = visited.len() / 2;
+
+    let clockwise_count = visited
+        .iter()
+        .map(|(_, incoming_direction, outgoing_direction)| {
+            match RotationalDirection::from_incoming_and_outgoing(
+                incoming_direction,
+                outgoing_direction,
+            ) {
+                None => 0,
+                Some(Clockwise) => 1,
+                Some(Anticlockwise) => -1,
+            }
+        })
+        .sum();
+    let rot_direction = match clockwise_count {
+        4 => Clockwise,
+        -4 => Anticlockwise,
+        _ => panic!(),
+    };
+
+    let mut visited_set = Grid::from_dimensions(grid.dimensions, false);
+    visited_set.extend(visited.iter().map(|(pos, _, _)| *pos));
+
+    let mut enclosed_entries = Grid::from_dimensions(grid.dimensions, false);
 
     let mut search = |mut pos: (usize, usize), direction_to_search: Direction| {
         direction_to_search.apply_to_position(&mut pos);
 
         while !visited_set.contains(&pos) {
-            enclosed_entries.insert(pos);
+            enclosed_entries.set(&pos, true);
             direction_to_search.apply_to_position(&mut pos);
         }
     };
@@ -249,14 +231,19 @@ pub fn solve_part2(grid: &PreparedInput) -> usize {
         .into_iter()
         .for_each(|(pos, incoming_direction, outgoing_direction)| {
             search(pos, incoming_direction.rotate(rot_direction));
-            search(pos, outgoing_direction.rotate(rot_direction));
+            if incoming_direction != outgoing_direction {
+                search(pos, outgoing_direction.rotate(rot_direction));
+            }
         });
-    enclosed_entries.len()
+
+    (part1_result, enclosed_entries.count())
 }
 
 pub fn solve(input: &str) -> (Solution, Solution) {
     let input = prepare(input);
-    (solve_part1(&input).into(), solve_part2(&input).into())
+    let (a, b) = solve_parts(&input);
+
+    (a.into(), b.into())
 }
 
 #[cfg(test)]

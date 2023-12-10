@@ -1,4 +1,5 @@
 use clap::Parser;
+use std::hint::black_box;
 use std::time::Instant;
 
 #[derive(Parser, Debug)]
@@ -7,6 +8,8 @@ struct Args {
     /// Day
     #[arg(short, long)]
     day: Option<usize>,
+    #[arg(short, long, default_value = "1")]
+    repeat: u32,
 }
 
 fn read_input(day: usize) -> String {
@@ -15,6 +18,7 @@ fn read_input(day: usize) -> String {
 
 fn main() {
     let args = Args::parse();
+    assert!(args.repeat > 0);
 
     let all_days = [
         aoc_2023::day::day01::solve,
@@ -33,23 +37,24 @@ fn main() {
         None => all_days
             .into_iter()
             .enumerate()
-            .map(|(i, solve)| (i + 1, solve))
+            .map(|(i, solve)| (i + 1, solve, read_input(i + 1)))
             .collect(),
-        Some(d) => vec![(d, all_days[d - 1])],
+        Some(d) => vec![(d, all_days[d - 1], read_input(d))],
     };
 
     let start = Instant::now();
-    day_and_solver.into_iter().for_each(|(day, solver)| {
-        let input = read_input(day);
-
+    day_and_solver.into_iter().for_each(|(day, solver, input)| {
         let start = Instant::now();
-        let (p1, p2) = solver(&input);
+        for _ in 0..args.repeat - 1 {
+            black_box(solver(black_box(&input)));
+        }
+        let (p1, p2) = solver(black_box(&input));
         let end = Instant::now();
 
         println!("day{}/part1: {}", day, p1);
         println!("day{}/part2: {}", day, p2);
-        println!("day{}/solve_time: {:?}", day, end - start);
+        println!("day{}/solve_time: {:?}", day, (end - start) / args.repeat);
     });
     let end = Instant::now();
-    println!("Total solve_time: {:?}", end - start);
+    println!("Total solve_time: {:?}", (end - start) / args.repeat);
 }

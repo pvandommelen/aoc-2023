@@ -21,12 +21,26 @@ fn solve_with_dist(input: &PreparedInput, dist: usize) -> usize {
 
     let increase_factor = dist - 1;
 
+    let cumulative_gaps = |set: &FxHashSet<usize>| -> Vec<usize> {
+        (0..set.iter().max().unwrap() + 1)
+            .scan(0, |previous, i| {
+                if !set.contains(&i) {
+                    *previous += 1;
+                }
+                Some(*previous)
+            })
+            .collect::<Vec<_>>()
+    };
+
+    let expansion_x = cumulative_gaps(&columns);
+    let expansion_y = cumulative_gaps(&rows);
+
     let expanded = input
         .iter()
         .map(|(j, i)| {
             (
-                *j + (0..*j).filter(|row| !rows.contains(row)).count() * increase_factor,
-                *i + (0..*i).filter(|col| !columns.contains(col)).count() * increase_factor,
+                *j + expansion_y[*j] * increase_factor,
+                *i + expansion_x[*i] * increase_factor,
             )
         })
         .collect::<FxHashSet<_>>();

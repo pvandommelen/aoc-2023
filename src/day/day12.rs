@@ -1,7 +1,6 @@
 use crate::day::day12::Condition::{Broken, Operational, Unknown};
 use crate::solution::Solution;
 use bstr::ByteSlice;
-use rustc_hash::FxHashMap;
 use winnow::ascii::dec_uint;
 use winnow::combinator::{alt, repeat, separated, separated_pair};
 use winnow::prelude::*;
@@ -40,7 +39,7 @@ pub fn prepare(input: &str) -> PreparedInput {
 
 fn calc_arrangement_count(line: &[Condition], expected: &[u8]) -> usize {
     fn inner<'a>(
-        cache: &mut Vec<FxHashMap<usize, usize>>,
+        cache: &mut Vec<Vec<usize>>,
         line: &'a [Condition],
         expected: &'a [u8],
         expected_total: usize,
@@ -52,13 +51,14 @@ fn calc_arrangement_count(line: &[Condition], expected: &[u8]) -> usize {
             }
             return 0;
         }
-        if let Some(cached) = cache[expected.len() - 1].get(&line.len()) {
-            return *cached;
-        }
         let nonop_index = line.iter().position(|c| *c != Operational);
         if nonop_index.is_none() {
             // No more broken springs possible, but it is expected.
             return 0;
+        }
+        let cached = cache[expected.len() - 1][line.len() - 1];
+        if cached != 0 {
+            return cached - 1;
         }
         let line = &line[nonop_index.unwrap()..];
         let next_length = expected[0] as usize;
@@ -85,11 +85,11 @@ fn calc_arrangement_count(line: &[Condition], expected: &[u8]) -> usize {
                 sum += inner(cache, line, expected, expected_total);
             }
         }
-        cache[expected.len() - 1].insert(line.len(), sum);
+        cache[expected.len() - 1][line.len() - 1] = sum + 1;
         sum
     }
     inner(
-        &mut vec![FxHashMap::default(); expected.len()],
+        &mut vec![vec![0; line.len()]; expected.len() + 1],
         line,
         expected,
         expected.iter().sum::<u8>() as usize,

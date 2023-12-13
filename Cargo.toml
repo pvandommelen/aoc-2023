@@ -16,6 +16,9 @@ debug = true
 lto = true
 codegen-units = 1
 
+[profile.bench]
+lto = false
+
 [[bench]]
 name = "day01"
 harness = false
@@ -58,4 +61,8 @@ harness = false
 
 [[bench]]
 name = "day11"
+harness = false
+
+[[bench]]
+name = "day12"
 harness = false

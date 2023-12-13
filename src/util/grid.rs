@@ -1,4 +1,5 @@
 use crate::util::position::{Direction, Position};
+use std::fmt::{Display, Formatter};
 use std::hash::Hasher;
 use std::ops::{Index, IndexMut};
 
@@ -139,6 +140,24 @@ impl<T> Grid<T> {
         let offset = pos.y() * self.dimensions.1 + pos.x();
         self.data[offset] = value;
     }
+
+    pub fn rows(&self) -> impl Iterator<Item = &[T]> + '_ {
+        self.data.chunks_exact(self.dimensions.1)
+    }
+
+    pub fn get_row(&self, j: usize) -> &[T] {
+        &self.data[j * self.dimensions.1..(j + 1) * self.dimensions.1]
+    }
+
+    pub fn transposed(&self) -> Self
+    where
+        T: Copy,
+    {
+        Grid::from_rows(
+            (0..self.dimensions.1)
+                .map(|i| (0..self.dimensions.0).map(move |j| self.data[j * self.dimensions.1 + i])),
+        )
+    }
 }
 impl<T> Index<usize> for Grid<T> {
     type Output = [T];
@@ -196,6 +215,12 @@ impl Grid<bool> {
 
     pub fn count(&self) -> usize {
         self.values().filter(|value| **value).count()
+    }
+}
+
+impl Display for Grid<bool> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.render())
     }
 }
 

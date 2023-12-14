@@ -1,9 +1,9 @@
 use crate::util::position::{Direction, Position};
-use std::fmt::{Display, Formatter};
+use std::fmt::{Display, Formatter, Write};
 use std::hash::Hasher;
 use std::ops::{Index, IndexMut};
 
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub struct Grid<T> {
     pub dimensions: (usize, usize),
     data: Vec<T>,
@@ -13,6 +13,7 @@ pub struct Grid<T> {
 pub struct GridPosition {
     offset: usize,
     row_stride: usize,
+    dimensions: (usize, usize),
 }
 impl From<GridPosition> for (usize, usize) {
     fn from(value: GridPosition) -> Self {
@@ -24,7 +25,37 @@ impl GridPosition {
     fn with_offset(self, offset: usize) -> Self {
         Self {
             offset,
+            dimensions: self.dimensions,
             row_stride: self.row_stride,
+        }
+    }
+
+    pub fn checked_moved(&self, direction: Direction) -> Option<Self> {
+        match direction {
+            Direction::Up => {
+                if self.offset < self.row_stride {
+                    return None;
+                }
+                Some(self.with_offset(self.offset - self.row_stride))
+            }
+            Direction::Right => {
+                if self.offset % self.row_stride > self.dimensions.1 - 2 {
+                    return None;
+                }
+                Some(self.with_offset(self.offset + 1))
+            }
+            Direction::Down => {
+                if self.offset > (self.dimensions.0 - 1) * self.row_stride {
+                    return None;
+                }
+                Some(self.with_offset(self.offset + self.row_stride))
+            }
+            Direction::Left => {
+                if self.offset % self.row_stride == 0 {
+                    return None;
+                }
+                Some(self.with_offset(self.offset - 1))
+            }
         }
     }
 }
@@ -101,12 +132,13 @@ impl<T> Grid<T> {
         self.dimensions.0 * self.dimensions.1
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = (GridPosition, &T)> + '_ {
+    pub fn iter(&self) -> impl DoubleEndedIterator<Item = (GridPosition, &T)> + '_ {
         self.data.iter().enumerate().map(|(i, value)| {
             (
                 GridPosition {
                     offset: i,
                     row_stride: self.dimensions.1,
+                    dimensions: self.dimensions,
                 },
                 value,
             )
@@ -119,6 +151,7 @@ impl<T> Grid<T> {
                 GridPosition {
                     offset: i,
                     row_stride: self.dimensions.1,
+                    dimensions: self.dimensions,
                 },
                 value,
             )
@@ -127,6 +160,15 @@ impl<T> Grid<T> {
 
     pub fn values(&self) -> impl Iterator<Item = &T> + '_ {
         self.data.iter()
+    }
+
+    pub fn positions(&self) -> impl DoubleEndedIterator<Item = GridPosition> {
+        let dimensions = self.dimensions;
+        (0..self.data.len()).map(move |i| GridPosition {
+            offset: i,
+            row_stride: dimensions.1,
+            dimensions,
+        })
     }
 
     #[inline]
@@ -197,17 +239,6 @@ impl Grid<bool> {
         grid
     }
 
-    pub fn render(&self) -> String {
-        String::from_iter(self.data.chunks_exact(self.dimensions.1).map(|row| {
-            let mut s = String::from_iter(row.iter().map(|value| match value {
-                true => '█',
-                false => ' ',
-            }));
-            s.push('\n');
-            s
-        }))
-    }
-
     #[inline]
     pub fn contains(&self, pos: &GridPosition) -> bool {
         *self.get(pos)
@@ -218,9 +249,30 @@ impl Grid<bool> {
     }
 }
 
-impl Display for Grid<bool> {
+pub trait CellDisplay {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result;
+}
+
+impl CellDisplay for bool {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.render())
+        f.write_char(match self {
+            true => '█',
+            false => ' ',
+        })
+    }
+}
+
+impl<T> Display for Grid<T>
+where
+    T: CellDisplay,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.data
+            .chunks_exact(self.dimensions.1)
+            .try_for_each(|row| {
+                row.iter().try_for_each(|value| value.fmt(f))?;
+                f.write_char('\n')
+            })
     }
 }
 
@@ -283,6 +335,7 @@ impl<'a, I> BackedGrid<'a, I> {
                     GridPosition {
                         offset: i,
                         row_stride: self.row_stride,
+                        dimensions: self.dimensions,
                     },
                     value.into(),
                 ))
@@ -298,6 +351,7 @@ impl<'a, I> BackedGrid<'a, I> {
                 Some(GridPosition {
                     offset: i,
                     row_stride: self.row_stride,
+                    dimensions: self.dimensions,
                 })
             }
         })

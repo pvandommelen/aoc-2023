@@ -4,7 +4,7 @@ use crate::day::day16::Element::{
 use crate::solution::Solution;
 use crate::util::grid::Grid;
 use crate::util::position::{Direction, Position, RotationalDirection};
-use crate::util::solver::solve_fn;
+use crate::util::solver::solve_fn_push;
 use rustc_hash::FxHashSet;
 use std::usize;
 
@@ -36,53 +36,67 @@ fn calc_energized_count(
     direction: Direction,
     initial_position: Position,
 ) -> usize {
-    let mut all_states = FxHashSet::<(Direction, Position)>::default();
-    let mut energized = FxHashSet::<Position>::default();
+    let mut all_states = FxHashSet::<u16>::default();
+    let mut energized = FxHashSet::<u16>::default();
+
+    // Assert that positions would take up to 7 bits.
+    assert!(grid.dimensions.0 < 128);
+    assert!(grid.dimensions.1 < 128);
 
     let dimensions = grid.dimensions.into();
 
-    solve_fn(
-        |(dir, pos)| {
-            energized.insert(*pos);
-            if !all_states.insert((*dir, *pos)) {
-                return vec![];
+    solve_fn_push(
+        |stack, (dir, pos)| {
+            energized.insert((pos.0 << 8) as u16 + pos.1 as u16);
+            if !all_states.insert((pos.0 << 9) as u16 + (pos.1 << 2) as u16 + *dir as u8 as u16) {
+                return;
             }
 
-            let out_directions = match (grid.get(pos), dir) {
-                (Empty, dir) => vec![*dir],
-                (SplitterHorizontal, Direction::Left | Direction::Right) => {
-                    vec![*dir]
+            let mut arr = [Direction::Up; 2];
+            let mut slice = &mut arr[..];
+
+            match (grid.get(pos), dir) {
+                (Empty, _)
+                | (SplitterHorizontal, Direction::Left | Direction::Right)
+                | (SplitterVertical, Direction::Up | Direction::Down) => {
+                    slice = &mut slice[0..1];
+                    slice[0] = *dir;
                 }
                 (SplitterHorizontal, Direction::Up | Direction::Down) => {
-                    vec![Direction::Left, Direction::Right]
+                    slice[0] = Direction::Left;
+                    slice[1] = Direction::Right;
                 }
                 (SplitterVertical, Direction::Left | Direction::Right) => {
-                    vec![Direction::Up, Direction::Down]
-                }
-                (SplitterVertical, Direction::Up | Direction::Down) => {
-                    vec![*dir]
+                    slice[0] = Direction::Up;
+                    slice[1] = Direction::Down;
                 }
                 (MirrorUp, Direction::Left | Direction::Right) => {
-                    vec![dir.with_rotation(&RotationalDirection::Anticlockwise)]
+                    slice = &mut slice[0..1];
+                    slice[0] = dir.with_rotation(&RotationalDirection::Anticlockwise);
                 }
                 (MirrorUp, Direction::Up | Direction::Down) => {
-                    vec![dir.with_rotation(&RotationalDirection::Clockwise)]
+                    slice = &mut slice[0..1];
+                    slice[0] = dir.with_rotation(&RotationalDirection::Clockwise);
                 }
                 (MirrorDown, Direction::Left | Direction::Right) => {
-                    vec![dir.with_rotation(&RotationalDirection::Clockwise)]
+                    slice = &mut slice[0..1];
+                    slice[0] = dir.with_rotation(&RotationalDirection::Clockwise);
                 }
                 (MirrorDown, Direction::Up | Direction::Down) => {
-                    vec![dir.with_rotation(&RotationalDirection::Anticlockwise)]
+                    slice = &mut slice[0..1];
+                    slice[0] = dir.with_rotation(&RotationalDirection::Anticlockwise);
                 }
             };
 
-            out_directions
-                .into_iter()
+            slice
+                .iter()
                 .filter_map(move |direction| {
-                    pos.checked_moved(&dimensions, &direction)
-                        .map(|pos| (direction, pos))
+                    pos.checked_moved(&dimensions, direction)
+                        .map(|pos| (*direction, pos))
                 })
-                .collect()
+                .for_each(|entry| {
+                    stack.push(entry);
+                });
         },
         vec![(direction, initial_position)],
     );

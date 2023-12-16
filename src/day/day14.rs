@@ -41,7 +41,7 @@ fn tilt(grid: &mut Grid<Element>, direction: Direction) {
         if *value == RoundedRock {
             let mut current_pos = pos;
             loop {
-                let next_pos = current_pos.checked_moved(direction).and_then(|next_pos| {
+                let next_pos = current_pos.checked_moved(&direction).and_then(|next_pos| {
                     if matches!(grid.get(&next_pos), Empty) {
                         Some(next_pos)
                     } else {

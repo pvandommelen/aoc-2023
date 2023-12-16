@@ -22,6 +22,14 @@ impl From<GridPosition> for (usize, usize) {
 }
 
 impl GridPosition {
+    pub fn from_grid_and_position<T>(grid: &Grid<T>, pos: &(usize, usize)) -> Self {
+        Self {
+            offset: pos.0 * grid.dimensions.1 + pos.1,
+            dimensions: grid.dimensions,
+            row_stride: grid.dimensions.1,
+        }
+    }
+
     fn with_offset(self, offset: usize) -> Self {
         Self {
             offset,
@@ -30,7 +38,7 @@ impl GridPosition {
         }
     }
 
-    pub fn checked_moved(&self, direction: Direction) -> Option<Self> {
+    pub fn checked_moved(&self, direction: &Direction) -> Option<Self> {
         match direction {
             Direction::Up => {
                 if self.offset < self.row_stride {
@@ -45,7 +53,7 @@ impl GridPosition {
                 Some(self.with_offset(self.offset + 1))
             }
             Direction::Down => {
-                if self.offset > (self.dimensions.0 - 1) * self.row_stride {
+                if self.offset >= (self.dimensions.0 - 1) * self.row_stride {
                     return None;
                 }
                 Some(self.with_offset(self.offset + self.row_stride))

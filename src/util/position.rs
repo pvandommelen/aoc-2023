@@ -16,7 +16,7 @@ impl RotationalDirection {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug, Eq, Hash)]
 pub enum Direction {
     Up = 0,
     Right = 1,

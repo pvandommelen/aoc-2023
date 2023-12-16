@@ -2,7 +2,7 @@ use crate::day::day16::Element::{
     Empty, MirrorDown, MirrorUp, SplitterHorizontal, SplitterVertical,
 };
 use crate::solution::Solution;
-use crate::util::grid::{Grid, GridPosition};
+use crate::util::grid::Grid;
 use crate::util::position::{Direction, Position, RotationalDirection};
 use crate::util::solver::solve_fn;
 use rustc_hash::FxHashSet;
@@ -34,10 +34,12 @@ pub fn prepare(input: &str) -> PreparedInput {
 fn calc_energized_count(
     grid: &PreparedInput,
     direction: Direction,
-    initial_position: (usize, usize),
+    initial_position: Position,
 ) -> usize {
-    let mut all_states = FxHashSet::<(Direction, (usize, usize))>::default();
-    let mut energized = FxHashSet::<(usize, usize)>::default();
+    let mut all_states = FxHashSet::<(Direction, Position)>::default();
+    let mut energized = FxHashSet::<Position>::default();
+
+    let dimensions = grid.dimensions.into();
 
     solve_fn(
         |(dir, pos)| {
@@ -46,9 +48,7 @@ fn calc_energized_count(
                 return vec![];
             }
 
-            let grid_pos = GridPosition::from_grid_and_position(grid, pos);
-
-            let out_directions = match (grid.get(&grid_pos), dir) {
+            let out_directions = match (grid.get(pos), dir) {
                 (Empty, dir) => vec![*dir],
                 (SplitterHorizontal, Direction::Left | Direction::Right) => {
                     vec![*dir]
@@ -79,9 +79,8 @@ fn calc_energized_count(
             out_directions
                 .into_iter()
                 .filter_map(move |direction| {
-                    grid_pos
-                        .checked_moved(&direction)
-                        .map(|pos| (direction, (pos.y(), pos.x())))
+                    pos.checked_moved(&dimensions, &direction)
+                        .map(|pos| (direction, pos))
                 })
                 .collect()
         },
@@ -92,25 +91,33 @@ fn calc_energized_count(
 }
 
 pub fn solve_part1(grid: &PreparedInput) -> usize {
-    calc_energized_count(grid, Direction::Right, (0, 0))
+    calc_energized_count(grid, Direction::Right, Position::from_yx(0, 0))
 }
 
 pub fn solve_part2(grid: &PreparedInput) -> usize {
     let mut max = 0;
     for i in 0..grid.dimensions.1 {
-        max = max.max(calc_energized_count(grid, Direction::Down, (0, i)));
+        max = max.max(calc_energized_count(
+            grid,
+            Direction::Down,
+            Position::from_yx(0, i),
+        ));
         max = max.max(calc_energized_count(
             grid,
             Direction::Up,
-            (grid.dimensions.0 - 1, i),
+            Position::from_yx(grid.dimensions.0 - 1, i),
         ));
     }
     for j in 0..grid.dimensions.0 {
-        max = max.max(calc_energized_count(grid, Direction::Right, (j, 0)));
+        max = max.max(calc_energized_count(
+            grid,
+            Direction::Right,
+            Position::from_yx(j, 0),
+        ));
         max = max.max(calc_energized_count(
             grid,
             Direction::Left,
-            (j, grid.dimensions.1 - 1),
+            Position::from_yx(j, grid.dimensions.1 - 1),
         ));
     }
 

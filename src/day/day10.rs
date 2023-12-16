@@ -1,5 +1,5 @@
 use crate::solution::Solution;
-use crate::util::grid::{BackedGrid, Grid, GridPosition};
+use crate::util::grid::{BackedGrid, Grid};
 use crate::util::position::{Direction, Position, RotationalDirection};
 
 #[derive(PartialEq, Copy, Clone, Debug)]
@@ -36,37 +36,51 @@ pub fn prepare(input: &str) -> PreparedInput<'_> {
     BackedGrid::from_data_and_row_separator(input.as_bytes(), b'\n')
 }
 
-fn calc_loop(grid: &PreparedInput) -> Vec<(GridPosition, Direction, Direction)> {
+fn calc_loop(grid: &PreparedInput) -> Vec<(Position, Direction, Direction)> {
     let (start_pos, _) = grid
         .iter::<Element>()
         .find(|(_, elem)| *elem == Element::Start)
         .unwrap();
 
+    let dimensions = grid.dimensions.into();
+
     let neighbours = [
         // Up
-        start_pos.y() > 0
-            && matches!(
-                grid.get(&start_pos.with_direction(&Direction::Up)),
-                Element::Vertical | Element::SouthEast | Element::SouthWest
-            ),
+        start_pos
+            .checked_moved(&dimensions, &Direction::Up)
+            .is_some_and(|pos| {
+                matches!(
+                    grid.get(&pos),
+                    Element::Vertical | Element::SouthEast | Element::SouthWest
+                )
+            }),
         // Down
-        start_pos.y() < grid.dimensions.0 - 1
-            && matches!(
-                grid.get(&start_pos.with_direction(&Direction::Down)),
-                Element::Vertical | Element::NorthEast | Element::NorthWest
-            ),
+        start_pos
+            .checked_moved(&dimensions, &Direction::Down)
+            .is_some_and(|pos| {
+                matches!(
+                    grid.get(&pos),
+                    Element::Vertical | Element::NorthEast | Element::NorthWest
+                )
+            }),
         // Right
-        start_pos.x() < grid.dimensions.1 - 1
-            && matches!(
-                grid.get(&start_pos.with_direction(&Direction::Right)),
-                Element::Horizontal | Element::NorthWest | Element::SouthWest
-            ),
+        start_pos
+            .checked_moved(&dimensions, &Direction::Right)
+            .is_some_and(|pos| {
+                matches!(
+                    grid.get(&pos),
+                    Element::Horizontal | Element::NorthWest | Element::SouthWest
+                )
+            }),
         // Left
-        start_pos.x() > 0
-            && matches!(
-                grid.get(&start_pos.with_direction(&Direction::Left)),
-                Element::Horizontal | Element::NorthEast | Element::SouthEast
-            ),
+        start_pos
+            .checked_moved(&dimensions, &Direction::Left)
+            .is_some_and(|pos| {
+                matches!(
+                    grid.get(&pos),
+                    Element::Horizontal | Element::NorthEast | Element::SouthEast
+                )
+            }),
     ];
 
     let (mut incoming_direction, mut outgoing_direction) = match neighbours {
@@ -84,7 +98,7 @@ fn calc_loop(grid: &PreparedInput) -> Vec<(GridPosition, Direction, Direction)> 
     loop {
         visited.push((pos, incoming_direction, outgoing_direction));
 
-        pos = pos.with_direction(&outgoing_direction);
+        pos = pos.checked_moved(&dimensions, &outgoing_direction).unwrap();
         incoming_direction = outgoing_direction;
         outgoing_direction = match incoming_direction {
             Direction::Up => match grid.get(&pos) {
@@ -156,9 +170,10 @@ fn solve_parts(grid: &PreparedInput) -> (usize, usize) {
 
     let mut enclosed_entries = Grid::from_dimensions(grid.dimensions, false);
 
-    let mut search = |mut pos: GridPosition, direction_to_search: &Direction| {
+    let dimensions = grid.dimensions.into();
+    let mut search = |mut pos: Position, direction_to_search: &Direction| {
         while {
-            pos = pos.with_direction(direction_to_search);
+            pos = pos.checked_moved(&dimensions, direction_to_search).unwrap();
             !visited_set.contains(&pos)
         } {
             enclosed_entries.set(&pos, true);

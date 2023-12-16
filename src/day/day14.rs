@@ -1,6 +1,6 @@
 use crate::day::day14::Element::{CubeShapedRock, Empty, RoundedRock};
 use crate::solution::Solution;
-use crate::util::grid::{CellDisplay, Grid, GridPosition};
+use crate::util::grid::{CellDisplay, Grid};
 use crate::util::position::{Direction, Position};
 use rustc_hash::FxHashMap;
 use std::fmt::{Formatter, Write};
@@ -36,18 +36,22 @@ pub fn prepare(input: &str) -> PreparedInput {
 
 fn tilt(grid: &mut Grid<Element>, direction: Direction) {
     let position_iterator = grid.positions();
-    let func = |pos: GridPosition| {
+    let dimensions = grid.dimensions.into();
+    let func = |pos: Position| {
         let value = grid.get(&pos);
         if *value == RoundedRock {
             let mut current_pos = pos;
             loop {
-                let next_pos = current_pos.checked_moved(&direction).and_then(|next_pos| {
-                    if matches!(grid.get(&next_pos), Empty) {
-                        Some(next_pos)
-                    } else {
-                        None
-                    }
-                });
+                let next_pos =
+                    current_pos
+                        .checked_moved(&dimensions, &direction)
+                        .and_then(|next_pos| {
+                            if matches!(grid.get(&next_pos), Empty) {
+                                Some(next_pos)
+                            } else {
+                                None
+                            }
+                        });
                 if next_pos.is_none() {
                     grid.set(&pos, Empty);
                     grid.set(&current_pos, RoundedRock);

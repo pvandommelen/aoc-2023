@@ -1,6 +1,5 @@
 use crate::solution::Solution;
 use crate::util::grid::Grid;
-use crate::util::position::Position;
 use bstr::ByteSlice;
 use std::ops::Range;
 use winnow::ascii::dec_uint;

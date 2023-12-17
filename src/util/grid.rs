@@ -86,6 +86,11 @@ impl<T> Grid<T> {
         &self.data[self.index(pos)]
     }
 
+    pub fn get_mut(&mut self, pos: &Position) -> &mut T {
+        let i = self.index(pos);
+        &mut self.data[i]
+    }
+
     #[inline]
     pub fn set(&mut self, pos: &Position, value: T) {
         let idx = self.index(pos);

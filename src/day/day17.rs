@@ -4,9 +4,7 @@ use crate::util::position::Direction::{Down, Left, Right, Up};
 use crate::util::position::{Dimensions, Direction, Position};
 use crate::util::solver::{solve_fn_priority, NodeResult};
 use bstr::ByteSlice;
-use rustc_hash::FxHashMap;
 use std::cmp::Ordering;
-use std::collections::hash_map::Entry;
 use std::ops::RangeInclusive;
 
 type PreparedInput = Grid<u8>;
@@ -43,7 +41,10 @@ impl PartialOrd for State {
 fn solve_part(grid: &PreparedInput, range: RangeInclusive<usize>) -> u32 {
     let dimensions: Dimensions = grid.dimensions.into();
 
-    let mut distances = FxHashMap::with_capacity_and_hasher(grid.size(), Default::default());
+    let mut distances = [
+        Grid::from_dimensions(grid.dimensions, u32::MAX),
+        Grid::from_dimensions(grid.dimensions, u32::MAX),
+    ];
 
     let target = Position(dimensions.height() - 1, dimensions.width() - 1);
     solve_fn_priority(
@@ -79,17 +80,12 @@ fn solve_part(grid: &PreparedInput, range: RangeInclusive<usize>) -> u32 {
                         estimated_heat_loss: next_estimated_heat_loss,
                     };
 
-                    match distances.entry((position, attempt_direction)) {
-                        Entry::Occupied(mut entry) => {
-                            if *entry.get() <= next_estimated_heat_loss {
-                                continue;
-                            }
-                            entry.insert(next_estimated_heat_loss);
-                        }
-                        Entry::Vacant(entry) => {
-                            entry.insert(next_estimated_heat_loss);
-                        }
+                    let entry =
+                        distances[(attempt_direction as u8 % 2) as usize].get_mut(&position);
+                    if *entry <= next_estimated_heat_loss {
+                        continue;
                     }
+                    *entry = next_estimated_heat_loss;
 
                     stack.push(next_state);
                 }
@@ -97,14 +93,10 @@ fn solve_part(grid: &PreparedInput, range: RangeInclusive<usize>) -> u32 {
 
             if state.direction != Left && state.direction != Right {
                 attempt_move(Right);
+                attempt_move(Left);
             }
             if state.direction != Up && state.direction != Down {
                 attempt_move(Down);
-            }
-            if state.direction != Right && state.direction != Left {
-                attempt_move(Left);
-            }
-            if state.direction != Down && state.direction != Up {
                 attempt_move(Up);
             }
             NodeResult::Next

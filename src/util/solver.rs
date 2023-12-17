@@ -1,4 +1,5 @@
 use rustc_hash::FxHashSet;
+use std::collections::BinaryHeap;
 
 pub fn solve_fn<F, S, II, I>(mut next: F, mut states: Vec<S>)
 where
@@ -75,4 +76,20 @@ where
         states = next_states.into_iter().collect();
         round += 1;
     }
+}
+
+pub fn solve_fn_priority<F, S>(mut next: F, states: Vec<S>) -> S
+where
+    S: Ord,
+    F: FnMut(&mut BinaryHeap<S>, &S) -> NodeResult,
+{
+    let mut stack = states.into_iter().collect::<BinaryHeap<_>>();
+
+    while let Some(current) = stack.pop() {
+        match next(&mut stack, &current) {
+            NodeResult::Next => {}
+            NodeResult::Stop => return current,
+        }
+    }
+    panic!("Stop condition not triggered");
 }

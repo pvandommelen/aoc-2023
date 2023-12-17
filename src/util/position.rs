@@ -105,6 +105,10 @@ impl Position {
             }
         }
     }
+
+    pub fn manhattan_distance(&self, other: &Position) -> usize {
+        other.0.abs_diff(self.0) + other.1.abs_diff(self.1)
+    }
 }
 
 impl From<Position> for (usize, usize) {

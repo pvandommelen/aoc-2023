@@ -25,11 +25,13 @@ struct State {
     target: Position,
     position: Position,
     direction: Direction,
-    heat_loss: u32,
+    estimated_heat_loss: u32,
 }
 impl Ord for State {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.heat_loss.cmp(&other.heat_loss).reverse()
+        self.estimated_heat_loss
+            .cmp(&other.estimated_heat_loss)
+            .reverse()
     }
 }
 impl PartialOrd for State {
@@ -43,6 +45,7 @@ fn solve_part(grid: &PreparedInput, range: RangeInclusive<usize>) -> u32 {
 
     let mut distances = FxHashMap::with_capacity_and_hasher(grid.size(), Default::default());
 
+    let target = Position(dimensions.height() - 1, dimensions.width() - 1);
     solve_fn_priority(
         |stack, state| {
             if state.position == state.target {
@@ -51,37 +54,44 @@ fn solve_part(grid: &PreparedInput, range: RangeInclusive<usize>) -> u32 {
 
             let mut attempt_move = |attempt_direction: Direction| {
                 let mut position = state.position;
-                let mut next_heat_loss = state.heat_loss;
+                let mut next_estimated_heat_loss = state.estimated_heat_loss;
+
+                let estimation_changed_by_direction = match attempt_direction {
+                    Right | Down => 0,
+                    Left | Up => 2,
+                };
+
                 for steps_moved in 1..=*range.end() {
-                    match position.checked_moved(&dimensions, &attempt_direction) {
+                    position = match position.checked_moved(&dimensions, &attempt_direction) {
                         None => return,
-                        Some(next) => {
-                            position = next;
-                            next_heat_loss += *grid.get(&next) as u32;
-                            if steps_moved >= *range.start() {
-                                let next_state = State {
-                                    target: state.target,
-                                    position: next,
-                                    direction: attempt_direction,
-                                    heat_loss: next_heat_loss,
-                                };
+                        Some(next) => next,
+                    };
+                    next_estimated_heat_loss +=
+                        *grid.get(&position) as u32 + estimation_changed_by_direction - 1;
 
-                                match distances.entry((next, attempt_direction)) {
-                                    Entry::Occupied(mut entry) => {
-                                        if *entry.get() <= next_heat_loss {
-                                            continue;
-                                        }
-                                        entry.insert(next_heat_loss);
-                                    }
-                                    Entry::Vacant(entry) => {
-                                        entry.insert(next_heat_loss);
-                                    }
-                                }
+                    if steps_moved < *range.start() {
+                        continue;
+                    }
+                    let next_state = State {
+                        target: state.target,
+                        position,
+                        direction: attempt_direction,
+                        estimated_heat_loss: next_estimated_heat_loss,
+                    };
 
-                                stack.push(next_state);
+                    match distances.entry((position, attempt_direction)) {
+                        Entry::Occupied(mut entry) => {
+                            if *entry.get() <= next_estimated_heat_loss {
+                                continue;
                             }
+                            entry.insert(next_estimated_heat_loss);
+                        }
+                        Entry::Vacant(entry) => {
+                            entry.insert(next_estimated_heat_loss);
                         }
                     }
+
+                    stack.push(next_state);
                 }
             };
 
@@ -101,20 +111,20 @@ fn solve_part(grid: &PreparedInput, range: RangeInclusive<usize>) -> u32 {
         },
         vec![
             State {
-                target: Position(dimensions.height() - 1, dimensions.width() - 1),
+                target,
                 position: Position(0, 0),
                 direction: Right,
-                heat_loss: 0,
+                estimated_heat_loss: Position(0, 0).manhattan_distance(&target) as u32,
             },
             State {
-                target: Position(dimensions.height() - 1, dimensions.width() - 1),
+                target,
                 position: Position(0, 0),
                 direction: Down,
-                heat_loss: 0,
+                estimated_heat_loss: Position(0, 0).manhattan_distance(&target) as u32,
             },
         ],
     )
-    .heat_loss
+    .estimated_heat_loss
 }
 
 pub fn solve_part1(grid: &PreparedInput) -> u32 {
